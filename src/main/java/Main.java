@@ -25,7 +25,6 @@ public class Main {
             String inputString = new String(input).trim();
             System.out.println("Received: " + inputString);
             clientSocket.getOutputStream().write("+PONG\r\n".getBytes());
-            break;
           }
 
         } catch (IOException e) {
