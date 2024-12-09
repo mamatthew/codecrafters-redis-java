@@ -33,7 +33,7 @@ public class CommandParser {
                 }
             }
         } catch (IOException e) {
-            throw new Exception(("Failed to read from input stream " + e.getMessage()));
+            throw new Exception(("Failed to read from input stream: " + e.getMessage()));
         }
     }
 

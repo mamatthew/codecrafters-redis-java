@@ -1,6 +1,8 @@
 public enum CommandName {
     PING("PING"),
-    ECHO("ECHO");
+    ECHO("ECHO"),
+    GET("GET"),
+    SET("SET");
 
     private String name;
 
