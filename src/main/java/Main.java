@@ -9,6 +9,7 @@ public class Main {
     private static final int THREAD_POOL_SIZE = 10;
 
     public static void main(String[] args){
+          setup(args);
           ExecutorService threadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
 
           try (ServerSocket serverSocket = new ServerSocket(port)) {
@@ -24,6 +25,17 @@ public class Main {
             } finally {
               threadPool.shutdown();
             }
+    }
+
+    private static void setup(String[] args) {
+        // args be a sequence of key value pairs of the form --key value. add these to the key value store
+        if (args.length % 2 != 0) {
+            throw new IllegalArgumentException("Invalid number of arguments");
+        }
+        KeyValueStore keyValueStore = KeyValueStore.getInstance();
+        for (int i = 0; i < args.length; i += 2) {
+            keyValueStore.put(args[i].substring(2), args[i + 1]);
+        }
     }
 
 }

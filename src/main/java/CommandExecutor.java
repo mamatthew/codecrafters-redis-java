@@ -16,9 +16,49 @@ public class CommandExecutor {
             case GET -> {
                 executeGet(command, out);
             }
+            case CONFIG -> {
+                executeConfig(command, out);
+            }
             default -> {
                 throw new IllegalArgumentException("Invalid command");
             }
+        }
+    }
+
+    private static void executeConfig(Command command, DataOutputStream out) {
+        // if the first argument is "GET", then the command is of the form:
+        // CONFIG GET key
+        if (command.getArgs()[0].equalsIgnoreCase("GET")) {
+            KeyValueStore keyValueStore = KeyValueStore.getInstance();
+            String value = (String) keyValueStore.get(command.getArgs()[1]);
+            if (value == null) {
+                try {
+                    out.writeBytes("$-1\r\n");
+                    out.flush();
+                } catch (IOException e) {
+                    System.out.println("Failed to write to client " + e.getMessage());
+                }
+            } else {
+                String[] returnArray = new String[2];
+                returnArray[0] = command.getArgs()[1];
+                returnArray[1] = value;
+                writeArray(out, returnArray);
+            }
+        } else {
+            throw new IllegalArgumentException("Invalid command");
+        }
+
+    }
+
+    private static void writeArray(DataOutputStream out, String[] returnArray) {
+        try {
+            out.writeBytes("*" + returnArray.length + "\r\n");
+            for (String s : returnArray) {
+                writeBulkString(out, s);
+            }
+            out.flush();
+        } catch (IOException e) {
+            System.out.println("Failed to write array to client " + e.getMessage());
         }
     }
 
@@ -34,6 +74,11 @@ public class CommandExecutor {
             }
         } else {
             writeBulkString(out, value);
+            try {
+                out.flush();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -57,13 +102,17 @@ public class CommandExecutor {
 
     private static void executeEcho(Command command, DataOutputStream out) {
         writeBulkString(out, command.getArgs()[0]);
+        try {
+            out.flush();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static void writeBulkString(DataOutputStream out, String arg) {
         try {
             out.writeBytes("$" + arg.length() + "\r\n");
             out.writeBytes(arg + "\r\n");
-            out.flush();
         } catch (IOException e) {
             System.out.println("Failed to write bulk string to client " + e.getMessage());
         }
