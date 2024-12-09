@@ -27,7 +27,7 @@ public class CommandExecutor {
         String value = (String) keyValueStore.get(command.getArgs()[0]);
         if (value == null) {
             try {
-                out.writeBytes("-ERR the key does not exist\r\n");
+                out.writeBytes("$-1\r\n");
                 out.flush();
             } catch (IOException e) {
                 System.out.println("Failed to write to client " + e.getMessage());
@@ -39,7 +39,14 @@ public class CommandExecutor {
 
     private static void executeSet(Command command, DataOutputStream out) {
         KeyValueStore keyValueStore = KeyValueStore.getInstance();
-        keyValueStore.put(command.getArgs()[0], command.getArgs()[1]);
+        // check if the command provides an expiry time. If it does, the command will be of the form:
+        // SET key value px milliseconds
+        if (command.getArgs().length == 4) {
+            long expiryTime = Long.parseLong(command.getArgs()[3]);
+            keyValueStore.put(command.getArgs()[0], command.getArgs()[1], expiryTime);
+        } else {
+            keyValueStore.put(command.getArgs()[0], command.getArgs()[1]);
+        }
         try {
             out.writeBytes("+OK\r\n");
             out.flush();
