@@ -34,7 +34,12 @@ public class Main {
         }
         KeyValueStore keyValueStore = KeyValueStore.getInstance();
         for (int i = 0; i < args.length; i += 2) {
-            keyValueStore.put(args[i].substring(2), args[i + 1]);
+            String key = args[i];
+            String val = args[i+1];
+            if (args[i].startsWith("--")) {
+                key = args[i].substring(2);
+            }
+            keyValueStore.put(key, val);
         }
     }
 

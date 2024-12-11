@@ -3,7 +3,8 @@ public enum CommandName {
     ECHO("ECHO"),
     GET("GET"),
     SET("SET"),
-    CONFIG("CONFIG");
+    CONFIG("CONFIG"),
+    KEYS("KEYS");
 
     private String name;
 

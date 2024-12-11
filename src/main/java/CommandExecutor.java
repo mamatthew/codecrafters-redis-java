@@ -1,5 +1,6 @@
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.List;
 
 public class CommandExecutor {
     public static void execute(Command command, DataOutputStream out) {
@@ -19,10 +20,27 @@ public class CommandExecutor {
             case CONFIG -> {
                 executeConfig(command, out);
             }
+            case KEYS -> {
+                executeKeys(command, out);
+            }
             default -> {
                 throw new IllegalArgumentException("Invalid command");
             }
         }
+    }
+
+    private static void executeKeys(Command command, DataOutputStream out) {
+        KeyValueStore keyValueStore = KeyValueStore.getInstance();
+        String rdbFilePath = keyValueStore.get("dir") + "/" + keyValueStore.get("dbfilename");
+        RdbFileReader rdbFileReader = new RdbFileReader();
+        try {
+            List<String> keys = rdbFileReader.parseRdbFile(rdbFilePath);
+            // write the list of keys as a bulk string array
+            writeArray(out, keys.toArray(new String[keys.size()]));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
     }
 
     private static void executeConfig(Command command, DataOutputStream out) {
