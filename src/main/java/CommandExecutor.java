@@ -31,10 +31,10 @@ public class CommandExecutor {
 
     private static void executeKeys(Command command, DataOutputStream out) {
         KeyValueStore keyValueStore = KeyValueStore.getInstance();
-        String rdbFilePath = keyValueStore.get("dir") + "/" + keyValueStore.get("dbfilename");
+        String rdbFilePath = Main.rdbFilePath;
         RdbFileReader rdbFileReader = new RdbFileReader();
         try {
-            List<String> keys = rdbFileReader.parseRdbFile(rdbFilePath);
+            List<String> keys = rdbFileReader.getKeys(rdbFilePath);
             // write the list of keys as a bulk string array
             writeArray(out, keys.toArray(new String[keys.size()]));
         } catch (IOException e) {
@@ -47,9 +47,9 @@ public class CommandExecutor {
         // if the first argument is "GET", then the command is of the form:
         // CONFIG GET key
         if (command.getArgs()[0].equalsIgnoreCase("GET")) {
-            KeyValueStore keyValueStore = KeyValueStore.getInstance();
-            String value = (String) keyValueStore.get(command.getArgs()[1]);
-            if (value == null) {
+            // if the key is "dir", return the directory where the RDB file is stored
+            String rdbFileDirectory = Main.rdbFilePath.substring(0, Main.rdbFilePath.lastIndexOf("/"));
+            if (rdbFileDirectory == null) {
                 try {
                     out.writeBytes("$-1\r\n");
                     out.flush();
@@ -59,7 +59,7 @@ public class CommandExecutor {
             } else {
                 String[] returnArray = new String[2];
                 returnArray[0] = command.getArgs()[1];
-                returnArray[1] = value;
+                returnArray[1] = rdbFileDirectory;
                 writeArray(out, returnArray);
             }
         } else {
@@ -83,6 +83,14 @@ public class CommandExecutor {
     private static void executeGet(Command command, DataOutputStream out) {
         KeyValueStore keyValueStore = KeyValueStore.getInstance();
         String value = (String) keyValueStore.get(command.getArgs()[0]);
+        if (value == null && Main.rdbFilePath != null) {
+            try {
+                RdbFileReader rdbFileReader = new RdbFileReader();
+                value = rdbFileReader.readValueFromKey(Main.rdbFilePath, command.getArgs()[0]);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
         if (value == null) {
             try {
                 out.writeBytes("$-1\r\n");

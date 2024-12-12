@@ -7,6 +7,7 @@ import java.util.concurrent.Executors;
 public class Main {
     private static final int port = 6379;
     private static final int THREAD_POOL_SIZE = 10;
+    public static String rdbFilePath = null;
 
     public static void main(String[] args){
           setup(args);
@@ -28,18 +29,11 @@ public class Main {
     }
 
     private static void setup(String[] args) {
-        // args be a sequence of key value pairs of the form --key value. add these to the key value store
-        if (args.length % 2 != 0) {
-            throw new IllegalArgumentException("Invalid number of arguments");
+        if (args.length != 4) {
+            return;
         }
-        KeyValueStore keyValueStore = KeyValueStore.getInstance();
-        for (int i = 0; i < args.length; i += 2) {
-            String key = args[i];
-            String val = args[i+1];
-            if (args[i].startsWith("--")) {
-                key = args[i].substring(2);
-            }
-            keyValueStore.put(key, val);
+        if (args[0].equals("--dir") && args[2].equals("--dbfilename")) {
+            rdbFilePath = args[1] + "/" + args[3];
         }
     }
 

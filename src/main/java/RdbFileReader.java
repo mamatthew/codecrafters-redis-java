@@ -11,7 +11,7 @@ public class RdbFileReader {
     private static final byte[] HEADER_MAGIC = "REDIS".getBytes();
     private static final byte[] HEADER_VERSION = "0011".getBytes();
 
-    public List<String> parseRdbFile(String filePath) throws IOException {
+    public List<String> getKeys(String filePath) throws IOException {
         List<String> keys = new ArrayList<>();
         try (PushbackInputStream in = new PushbackInputStream(new DataInputStream(new FileInputStream(filePath))) ) {
             parseHeader(in);
@@ -24,6 +24,51 @@ public class RdbFileReader {
             System.out.println("End of file parsed");
         }
         return keys;
+    }
+
+    public String readValueFromKey(String filePath, String key) throws IOException {
+        try (PushbackInputStream in = new PushbackInputStream(new DataInputStream(new FileInputStream(filePath))) ) {
+            parseHeader(in);
+            parseMetadata(in);
+            return readValueFromKey(in, key);
+        }
+    }
+
+    private String readValueFromKey(PushbackInputStream in, String key) throws IOException {
+        while (true) {
+            byte marker = (byte) in.read();
+            if (marker == (byte) 0xFF) {
+                break;
+            }
+            if (marker != (byte) 0xFE) {
+                throw new RuntimeException("Invalid RDB file: unexpected database marker: " + marker);
+            }
+            try {
+                int index = (byte) in.read(); // read database index
+            } catch (IOException e) {
+                throw new RuntimeException("Invalid RDB file: failed to parse database index", e);
+            }
+
+            try {
+                int size = parseHashTableSize(in);
+                // parse hash table
+                for (int i = 0; i < size; i++) {
+                    byte type = (byte) in.read();
+                    if (type == (byte) 0xFC || type == (byte) 0xFD) {
+                        parseExpire(in, type);
+                    }
+                    String currentKey = parseString(in);
+                    if (currentKey.equals(key)) {
+                        return parseValue(in, type);
+                    }
+                }
+                // value not found in this database
+                return null;
+            } catch (IOException e) {
+                throw new RuntimeException("Invalid RDB file: failed to parse hash table size", e);
+            }
+        }
+        return null;
     }
 
     private void parseHeader(PushbackInputStream in) throws IOException {
@@ -125,14 +170,14 @@ public class RdbFileReader {
         keys.add(key);
     }
 
-    private void parseValue(PushbackInputStream in, byte valueType) throws IOException {
+    private String parseValue(PushbackInputStream in, byte valueType) throws IOException {
         switch (valueType) {
-            case 0x00: // string
-                parseString(in);
-                break;
+            // string
+            case 0x00 -> {
+                return parseString(in);
+            }
             // Add cases for other value types if needed
-            default:
-                throw new IOException("Invalid RDB file: unknown value type");
+            default -> throw new IOException("Invalid RDB file: unknown value type");
         }
     }
 
