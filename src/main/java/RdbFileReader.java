@@ -48,24 +48,28 @@ public class RdbFileReader {
             } catch (IOException e) {
                 throw new RuntimeException("Invalid RDB file: failed to parse database index", e);
             }
-
+            int size = 0;
             try {
-                int size = parseHashTableSize(in);
-                // parse hash table
+                size = parseHashTableSize(in);
+            } catch (IOException e) {
+                throw new RuntimeException("Invalid RDB file: failed to parse hash table size: " + e);
+            }
+            // parse hash table
+            try {
                 for (int i = 0; i < size; i++) {
                     byte type = (byte) in.read();
                     if (type == (byte) 0xFC || type == (byte) 0xFD) {
                         parseExpire(in, type);
                     }
                     String currentKey = parseString(in);
+                    String value = parseValue(in, type);
+//                    System.out.println(value);
                     if (currentKey.equals(key)) {
-                        return parseValue(in, type);
+                        return value;
                     }
                 }
-                // value not found in this database
-                return null;
             } catch (IOException e) {
-                throw new RuntimeException("Invalid RDB file: failed to parse hash table size", e);
+                throw new RuntimeException("Invalid RDB file: failed to parse hash table entry: " + e);
             }
         }
         return null;
@@ -185,12 +189,16 @@ public class RdbFileReader {
         byte firstByte = (byte) in.read();
         int length;
         if ((firstByte & 0xC0) == 0x00) {
+            // 6-bit encoding
             length = firstByte & 0x3F;
+            // 14-bit encoding
         } else if ((firstByte & 0xC0) == 0x40) {
             length = ((firstByte & 0x3F) << 8) | (in.read() & 0xFF);
+            // 32-bit encoding
         } else if ((firstByte & 0xC0) == 0x80) {
             byte[] buf = new byte[4];
             length = in.read(buf, 0, 4);
+            // string encoding
         } else if ((firstByte & 0xC0) == 0xC0) {
             switch (firstByte & 0x3F) {
                 case 0x00: // 8-bit integer
@@ -202,8 +210,10 @@ public class RdbFileReader {
                 case 0x02: // 32-bit integer
                     int intLength = readLittleEndianInt(in);
                     return Integer.toString(intLength);
+                case 0x03: // 64-bit integer
+                    throw new IOException("LFZ integer encoding not supported");
                 default:
-                    throw new IOException("Invalid RDB file: unknown string encoding");
+                    throw new IOException("unknown string encoding: " + firstByte);
             }
         } else {
             throw new IOException("Invalid RDB file: unknown size encoding");
