@@ -4,7 +4,8 @@ public enum CommandName {
     GET("GET"),
     SET("SET"),
     CONFIG("CONFIG"),
-    KEYS("KEYS");
+    KEYS("KEYS"),
+    INFO("INFO");
 
     private String name;
 

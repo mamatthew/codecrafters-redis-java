@@ -23,6 +23,21 @@ public class CommandExecutor {
             case KEYS -> {
                 executeKeys(command, out);
             }
+            case INFO -> {
+                executeInfo(command, out);
+            }
+            default -> {
+                throw new IllegalArgumentException("Invalid command");
+            }
+        }
+    }
+
+    private static void executeInfo(Command command, DataOutputStream out) {
+        String[] args = command.getArgs();
+        switch (args[0]) {
+            case "replication" -> {
+                writeBulkString(out, "role:master");
+            }
             default -> {
                 throw new IllegalArgumentException("Invalid command");
             }
