@@ -58,13 +58,14 @@ public class RdbFileReader {
             try {
                 for (int i = 0; i < size; i++) {
                     byte type = (byte) in.read();
+                    boolean isExpired = false;
                     if (type == (byte) 0xFC || type == (byte) 0xFD) {
-                        parseExpire(in, type);
+                        isExpired = parseExpire(in, type);
+                        type = (byte) in.read();
                     }
                     String currentKey = parseString(in);
                     String value = parseValue(in, type);
-//                    System.out.println(value);
-                    if (currentKey.equals(key)) {
+                    if (currentKey.equals(key) && !isExpired) {
                         return value;
                     }
                 }
@@ -158,13 +159,17 @@ public class RdbFileReader {
 
     }
 
-    private void parseExpire(PushbackInputStream in, byte type) throws IOException {
+    private boolean parseExpire(PushbackInputStream in, byte type) throws IOException {
         if (type == (byte) 0xFC) {
             byte[] expireTimestamp = new byte[8];
             in.read(expireTimestamp, 0, 8); // expire timestamp in milliseconds
-        } else if (type == (byte) 0xFD) {
+            long expiryTime = ByteBuffer.wrap(expireTimestamp).order(ByteOrder.LITTLE_ENDIAN).getLong();
+            return expiryTime < System.currentTimeMillis();
+        } else {
             byte[] expireTimestamp = new byte[4];
             in.read(expireTimestamp, 0, 4); // expire timestamp in seconds
+            long expiryTime = ByteBuffer.wrap(expireTimestamp).order(ByteOrder.LITTLE_ENDIAN).getInt();
+            return expiryTime < System.currentTimeMillis() / 1000;
         }
     }
 
