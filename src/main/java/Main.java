@@ -1,5 +1,6 @@
 import com.beust.jcommander.JCommander;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -43,6 +44,20 @@ public class Main {
         }
         port = commandLineArgs.port;
         masterHostAndPort = commandLineArgs.replicaof;
+        if (masterHostAndPort != null) {
+            String host = masterHostAndPort.split(" ")[0];
+            int port = Integer.parseInt(masterHostAndPort.split(" ")[1]);
+            sendHandshakeToMaster(host, port);
+        }
+    }
+
+    private static void sendHandshakeToMaster(String host, int port) {
+        try (Socket socket = new Socket(host, port);
+             DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
+            CommandExecutor.writeArray(out, new String[]{"PING"});
+        } catch (IOException e) {
+            System.out.println("Failed to send handshake to master: " + e.getMessage());
+        }
     }
 
 }

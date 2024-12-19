@@ -92,7 +92,7 @@ public class CommandExecutor {
 
     }
 
-    private static void writeArray(DataOutputStream out, String[] returnArray) {
+    public static void writeArray(DataOutputStream out, String[] returnArray) {
         try {
             out.writeBytes("*" + returnArray.length + "\r\n");
             for (String s : returnArray) {
@@ -159,7 +159,7 @@ public class CommandExecutor {
         }
     }
 
-    private static void writeBulkString(DataOutputStream out, String arg) {
+    public static void writeBulkString(DataOutputStream out, String arg) {
         try {
             out.writeBytes("$" + arg.length() + "\r\n");
             out.writeBytes(arg + "\r\n");
