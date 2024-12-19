@@ -68,6 +68,8 @@ public class Main {
             sendCommand(out, "REPLCONF", "capa", "psync2");
             validateResponse(in, "OK");
 
+            sendCommand(out, "PSYNC", "?", "-1");
+
         } catch (IOException e) {
             System.out.println("Failed to send handshake to master: " + e.getMessage());
         } catch (Exception e) {
