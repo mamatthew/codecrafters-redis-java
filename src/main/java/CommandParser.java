@@ -17,7 +17,7 @@ public class CommandParser {
         return new Command(process(in, new ArrayList<>()));
     }
 
-    private static List<String> process(DataInputStream in, List<String> args) throws Exception {
+    static List<String> process(DataInputStream in, List<String> args) throws Exception {
         byte b;
         try {
             b = in.readByte();
@@ -28,6 +28,9 @@ public class CommandParser {
                 case DOLLAR_BYTE -> {
                     return processBulkString(in, args);
                 }
+                case PLUS_BYTE -> {
+                    return processSimpleString(in, args);
+                }
                 default -> {
                     throw new IllegalArgumentException("Invalid command");
                 }
@@ -35,6 +38,21 @@ public class CommandParser {
         } catch (IOException e) {
             throw new Exception(("Failed to read from input stream: " + e.getMessage()));
         }
+    }
+
+    public static List<String> processSimpleString(DataInputStream in, List<String> args) {
+        StringBuilder sb = new StringBuilder();
+        try {
+            byte b;
+            while ((b = in.readByte()) != CARRIAGE_RETURN_BYTE) {
+                sb.append((char) b);
+            }
+            in.readByte(); // consume the LINE_FEED_BYTE
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        args.add(sb.toString());
+        return args;
     }
 
     private static List<String> processBulkString(DataInputStream in, List<String> args) {

@@ -1,9 +1,12 @@
 import com.beust.jcommander.JCommander;
 
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -53,10 +56,33 @@ public class Main {
 
     private static void sendHandshakeToMaster(String host, int port) {
         try (Socket socket = new Socket(host, port);
-             DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
-            CommandExecutor.writeArray(out, new String[]{"PING"});
+             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+             DataInputStream in = new DataInputStream(socket.getInputStream())) {
+
+            sendCommand(out, "PING");
+            validateResponse(in, "PONG");
+
+            sendCommand(out, "REPLCONF", "listening-port", String.valueOf(Main.port));
+            validateResponse(in, "OK");
+
+            sendCommand(out, "REPLCONF", "capa", "psync2");
+            validateResponse(in, "OK");
+
         } catch (IOException e) {
             System.out.println("Failed to send handshake to master: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void sendCommand(DataOutputStream out, String... command) throws IOException {
+        CommandExecutor.writeArray(out, command);
+    }
+
+    private static void validateResponse(DataInputStream in, String expectedResponse) throws Exception {
+        List<String> response = CommandParser.process(in, new ArrayList<>());
+        if (!response.get(0).equals(expectedResponse)) {
+            throw new RuntimeException("Failed to handshake with master: expected " + expectedResponse + ", received " + response.get(0) + " instead");
         }
     }
 
