@@ -9,11 +9,13 @@ public class Main {
     private static final int THREAD_POOL_SIZE = 10;
     public static String rdbFilePath = null;
     public static int customPort = -1;
+    public static String masterHostAndPort = null;
 
     public static void main(String[] args){
           setup(args);
           ExecutorService threadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
           int port = customPort != -1 ? customPort : DEFAULT_PORT;
+          System.out.println("Starting server on port " + port);
           try (ServerSocket serverSocket = new ServerSocket(port)) {
               serverSocket.setReuseAddress(true);
               while (true) {
@@ -35,6 +37,11 @@ public class Main {
             return;
         }
         if (args.length != 4) {
+            return;
+        }
+        if (args[0].equals("--port") && args[2].equals("--replicaof")) {
+            customPort = Integer.parseInt(args[1]);
+            masterHostAndPort = args[3];
             return;
         }
         if (args[0].equals("--dir") && args[2].equals("--dbfilename")) {

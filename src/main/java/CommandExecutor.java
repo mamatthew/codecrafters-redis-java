@@ -36,7 +36,11 @@ public class CommandExecutor {
         String[] args = command.getArgs();
         switch (args[0]) {
             case "replication" -> {
-                writeBulkString(out, "role:master");
+                if (Main.masterHostAndPort != null) {
+                    writeBulkString(out, "role:slave");
+                } else {
+                    writeBulkString(out, "role:master");
+                }
             }
             default -> {
                 throw new IllegalArgumentException("Invalid command");
