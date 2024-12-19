@@ -36,11 +36,16 @@ public class CommandExecutor {
         String[] args = command.getArgs();
         switch (args[0]) {
             case "replication" -> {
+                StringBuilder info = new StringBuilder();
                 if (Main.masterHostAndPort != null) {
-                    writeBulkString(out, "role:slave");
+                    info.append("role:slave\r\n");
                 } else {
-                    writeBulkString(out, "role:master");
+                    info.append("role:master\r\n");
                 }
+
+                info.append("master_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\r\n");
+                info.append("master_repl_offset:0\r\n");
+                writeBulkString(out, info.toString());
             }
             default -> {
                 throw new IllegalArgumentException("Invalid command");
