@@ -15,6 +15,8 @@ public class Main {
     public static String rdbFilePath = null;
     private static int port;
     static String masterHostAndPort;
+    public static String masterReplId;
+    public static int masterReplOffset;
 
     public static void main(String[] args){
           setup(args);
@@ -51,6 +53,9 @@ public class Main {
             String host = masterHostAndPort.split(" ")[0];
             int port = Integer.parseInt(masterHostAndPort.split(" ")[1]);
             sendHandshakeToMaster(host, port);
+        } else {
+            masterReplId = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
+            masterReplOffset = 0;
         }
     }
 

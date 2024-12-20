@@ -6,7 +6,8 @@ public enum CommandName {
     CONFIG("CONFIG"),
     KEYS("KEYS"),
     INFO("INFO"),
-    REPLCONF("REPLCONF");
+    REPLCONF("REPLCONF"),
+    PSYNC("PSYNC");
 
     private String name;
 

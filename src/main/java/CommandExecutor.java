@@ -29,10 +29,17 @@ public class CommandExecutor {
             case REPLCONF -> {
                 executeReplConfOk(command, out);
             }
+            case PSYNC -> {
+                executePsync(command, out);
+            }
             default -> {
                 throw new IllegalArgumentException("Invalid command");
             }
         }
+    }
+
+    private static void executePsync(Command command, DataOutputStream out) {
+        writeSimpleString(out, "FULLRESYNC " + Main.masterReplId + " " + Main.masterReplOffset);
     }
 
     private static void executeReplConfOk(Command command, DataOutputStream out) {
@@ -55,8 +62,8 @@ public class CommandExecutor {
                     info.append("role:master\r\n");
                 }
 
-                info.append("master_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\r\n");
-                info.append("master_repl_offset:0\r\n");
+                info.append("master_replid:"+ Main.masterReplId +"\r\n");
+                info.append("master_repl_offset:" + Main.masterReplOffset + "\r\n");
                 writeBulkString(out, info.toString());
             }
             default -> {
