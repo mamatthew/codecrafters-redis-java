@@ -1,5 +1,5 @@
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.util.Base64;
 import java.util.List;
 
 public class CommandExecutor {
@@ -40,6 +40,15 @@ public class CommandExecutor {
 
     private static void executePsync(Command command, DataOutputStream out) {
         writeSimpleString(out, "FULLRESYNC " + Main.masterReplId + " " + Main.masterReplOffset);
+        String emptyFileContents = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
+        byte[] bytes = Base64.getDecoder().decode(emptyFileContents);
+        try {
+            out.writeBytes("$" + bytes.length + "\r\n");
+            out.write(bytes);
+            out.flush();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static void executeReplConfOk(Command command, DataOutputStream out) {
