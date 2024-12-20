@@ -26,9 +26,21 @@ public class CommandExecutor {
             case INFO -> {
                 executeInfo(command, out);
             }
+            case REPLCONF -> {
+                executeReplConfOk(command, out);
+            }
             default -> {
                 throw new IllegalArgumentException("Invalid command");
             }
+        }
+    }
+
+    private static void executeReplConfOk(Command command, DataOutputStream out) {
+        writeSimpleString(out, "OK");
+        try {
+            out.flush();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -165,6 +177,14 @@ public class CommandExecutor {
             out.writeBytes(arg + "\r\n");
         } catch (IOException e) {
             System.out.println("Failed to write bulk string to client " + e.getMessage());
+        }
+    }
+
+    public static void writeSimpleString(DataOutputStream out, String arg) {
+        try {
+            out.writeBytes("+" + arg + "\r\n");
+        } catch (IOException e) {
+            System.out.println("Failed to write simple string to client " + e.getMessage());
         }
     }
 
