@@ -16,7 +16,14 @@ public class ClientHandler implements Runnable {
              DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream())) {
             while (true) {
                 Command command = CommandParser.parse(in);
-                CommandExecutor.execute(command, out);
+                if (Main.replicaOutputs.contains(out)) {
+                    CommandExecutor.execute(command, null); // Process silently for replicas
+                } else {
+                    CommandExecutor.execute(command, out);
+                }
+                if (command.getCommand().equals(CommandName.PSYNC)) {
+                    Main.replicaOutputs.add(out);
+                }
             }
         } catch (Exception e) {
             System.out.println("Failed to read/write from client socket: " + e.getMessage());

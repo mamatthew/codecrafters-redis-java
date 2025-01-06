@@ -1,8 +1,12 @@
 import java.io.*;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class CommandExecutor {
+    private static final ExecutorService replicaThreadPool = Executors.newCachedThreadPool();
+
     public static void execute(Command command, DataOutputStream out) {
         switch (command.getCommand()) {
             case PING -> {
@@ -13,15 +17,16 @@ public class CommandExecutor {
             }
             case SET -> {
                 executeSet(command, out);
+                propagateToReplicas(command);
             }
             case GET -> {
                 executeGet(command, out);
             }
-            case CONFIG -> {
-                executeConfig(command, out);
-            }
             case KEYS -> {
                 executeKeys(command, out);
+            }
+            case CONFIG -> {
+                executeConfig(command, out);
             }
             case INFO -> {
                 executeInfo(command, out);
@@ -35,6 +40,19 @@ public class CommandExecutor {
             default -> {
                 throw new IllegalArgumentException("Invalid command");
             }
+        }
+    }
+
+    private static void propagateToReplicas(Command command) {
+        for (DataOutputStream replicaOut : Main.replicaOutputs) {
+            replicaThreadPool.execute(() -> {
+                try {
+                    writeArray(replicaOut, command.toArray());
+                    replicaOut.flush();
+                } catch (IOException e) {
+                    System.out.println("Failed to propagate command to replica: " + e.getMessage());
+                }
+            });
         }
     }
 
@@ -82,7 +100,6 @@ public class CommandExecutor {
     }
 
     private static void executeKeys(Command command, DataOutputStream out) {
-        KeyValueStore keyValueStore = KeyValueStore.getInstance();
         String rdbFilePath = Main.rdbFilePath;
         RdbFileReader rdbFileReader = new RdbFileReader();
         try {

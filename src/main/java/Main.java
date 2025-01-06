@@ -7,6 +7,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -17,6 +18,7 @@ public class Main {
     static String masterHostAndPort;
     public static String masterReplId;
     public static int masterReplOffset;
+    public static List<DataOutputStream> replicaOutputs = new CopyOnWriteArrayList<>();
 
     public static void main(String[] args){
           setup(args);

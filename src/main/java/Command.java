@@ -20,5 +20,12 @@ private final CommandName command;
         return args;
     }
 
+    public String[] toArray() {
+        String[] array = new String[args.length + 1];
+        array[0] = command.getName();
+        System.arraycopy(args, 0, array, 1, args.length);
+        return array;
+    }
+
 
 }
