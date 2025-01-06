@@ -18,12 +18,16 @@ public class Main {
     static String masterHostAndPort;
     public static String masterReplId;
     public static int masterReplOffset;
-    public static List<DataOutputStream> replicaOutputs = new CopyOnWriteArrayList<>();
+    public static List<DataOutputStream> replicaOutputs;
+    public static DataInputStream masterInputStream;
 
     public static void main(String[] args){
           setup(args);
           ExecutorService threadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
           System.out.println("Starting server on port " + port);
+          if (masterHostAndPort != null) {
+              threadPool.execute(() -> listenToMaster());
+          }
           try (ServerSocket serverSocket = new ServerSocket(port)) {
               serverSocket.setReuseAddress(true);
               while (true) {
@@ -37,6 +41,20 @@ public class Main {
             } finally {
               threadPool.shutdown();
             }
+    }
+
+    private static void listenToMaster() {
+        System.out.println("Listening to master");
+        while (true) {
+            try {
+                Command command = CommandParser.parse(masterInputStream);
+                System.out.println("Received command from master: " + command.getCommand());
+                CommandExecutor.execute(command, null, true); // Process silently for replicas
+            } catch (Exception e) {
+                System.out.println("Failed to read from master: " + e.getMessage());
+                break;
+            }
+        }
     }
 
     private static void setup(String[] args) {
@@ -54,17 +72,21 @@ public class Main {
         if (masterHostAndPort != null) {
             String host = masterHostAndPort.split(" ")[0];
             int port = Integer.parseInt(masterHostAndPort.split(" ")[1]);
+            System.out.println("Connecting to master at " + host + ":" + port);
             sendHandshakeToMaster(host, port);
         } else {
+            replicaOutputs = new CopyOnWriteArrayList<>();
             masterReplId = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
             masterReplOffset = 0;
         }
     }
 
-    private static void sendHandshakeToMaster(String host, int port) {
-        try (Socket socket = new Socket(host, port);
-             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-             DataInputStream in = new DataInputStream(socket.getInputStream())) {
+    public static void sendHandshakeToMaster(String host, int port) {
+        try {
+            System.out.println("Sending handshake to master");
+            Socket socket = new Socket(host, port);
+            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+            DataInputStream in = new DataInputStream(socket.getInputStream());
 
             sendCommand(out, "PING");
             validateResponse(in, "PONG");
@@ -76,6 +98,28 @@ public class Main {
             validateResponse(in, "OK");
 
             sendCommand(out, "PSYNC", "?", "-1");
+
+            List<String> response = CommandParser.process(in, new ArrayList<>());
+            if (response.get(0).startsWith("FULLRESYNC")) {
+                System.out.println("Received FULLRESYNC response from master");
+
+                // Read the RDB file from the master. It will be of the form $<length>\r\n<bytes>
+                in.readByte(); // Consume the '$' byte
+                int rdbLength = CommandParser.readIntCRLF(in);
+                byte[] rdbFileData = new byte[rdbLength];
+                in.readFully(rdbFileData);
+            
+                // Write the RDB file to disk
+                CommandExecutor.writeRdbFile(rdbFileData, "dump.rdb");
+                
+                System.out.println("RDB file loaded successfully");
+            } else {
+                throw new RuntimeException("Unexpected response from master: " + response.get(0));
+            }
+
+            masterInputStream = in;
+
+            System.out.println("Handshake with master successful");
 
         } catch (IOException e) {
             System.out.println("Failed to send handshake to master: " + e.getMessage());

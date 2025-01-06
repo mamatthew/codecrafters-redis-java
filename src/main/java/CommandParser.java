@@ -90,7 +90,7 @@ public class CommandParser {
         return args;
     }
 
-    private static int readIntCRLF(DataInputStream in) throws IOException {
+    public static int readIntCRLF(DataInputStream in) throws IOException {
         int result = 0;
         boolean isNegative = false;
         while (true) {

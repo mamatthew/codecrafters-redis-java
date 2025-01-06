@@ -12,15 +12,17 @@ public class ClientHandler implements Runnable {
 
     @Override
     public void run() {
-        try (DataInputStream in = new DataInputStream(clientSocket.getInputStream());
-             DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream())) {
+        try {
+            DataInputStream in = new DataInputStream(clientSocket.getInputStream());
+            DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
             while (true) {
                 Command command = CommandParser.parse(in);
-                if (Main.replicaOutputs.contains(out)) {
-                    CommandExecutor.execute(command, null); // Process silently for replicas
-                } else {
-                    CommandExecutor.execute(command, out);
+                if (Main.masterHostAndPort != null && Main.masterInputStream == null) {
+                    String host = Main.masterHostAndPort.split(" ")[0];
+                    int port = Integer.parseInt(Main.masterHostAndPort.split(" ")[1]);
+                    Main.sendHandshakeToMaster(host, port);
                 }
+                CommandExecutor.execute(command, out);
                 if (command.getCommand().equals(CommandName.PSYNC)) {
                     Main.replicaOutputs.add(out);
                 }

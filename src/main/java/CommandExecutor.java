@@ -8,6 +8,15 @@ public class CommandExecutor {
     private static final ExecutorService replicaThreadPool = Executors.newCachedThreadPool();
 
     public static void execute(Command command, DataOutputStream out) {
+        boolean isWriteCommand = command.getCommand() == CommandName.SET;
+        execute(command, out, false);
+        if (isWriteCommand) {
+            System.out.println("received write command. Propagating to replicas");
+            propagateToReplicas(command);
+        }
+    }
+
+    public static void execute(Command command, DataOutputStream out, boolean silent) {
         switch (command.getCommand()) {
             case PING -> {
                 executePing(command, out);
@@ -16,8 +25,7 @@ public class CommandExecutor {
                 executeEcho(command, out);
             }
             case SET -> {
-                executeSet(command, out);
-                propagateToReplicas(command);
+                executeSet(command, out, silent);
             }
             case GET -> {
                 executeGet(command, out);
@@ -45,11 +53,14 @@ public class CommandExecutor {
 
     private static void propagateToReplicas(Command command) {
         for (DataOutputStream replicaOut : Main.replicaOutputs) {
+            // print out the host and port of the replica
+            System.out.println("Propagating to replica: " + replicaOut);
             replicaThreadPool.execute(() -> {
                 try {
-                    writeArray(replicaOut, command.toArray());
-                    replicaOut.flush();
-                } catch (IOException e) {
+                    String[] commandStrings = command.toArray();
+                    System.out.println("Propagating command to replica: " + commandStrings);
+                    writeArray(replicaOut, commandStrings);
+                } catch (Exception e) {
                     System.out.println("Failed to propagate command to replica: " + e.getMessage());
                 }
             });
@@ -79,24 +90,17 @@ public class CommandExecutor {
     }
 
     private static void executeInfo(Command command, DataOutputStream out) {
-        String[] args = command.getArgs();
-        switch (args[0]) {
-            case "replication" -> {
-                StringBuilder info = new StringBuilder();
-                if (Main.masterHostAndPort != null) {
-                    info.append("role:slave\r\n");
-                } else {
-                    info.append("role:master\r\n");
-                }
-
-                info.append("master_replid:"+ Main.masterReplId +"\r\n");
-                info.append("master_repl_offset:" + Main.masterReplOffset + "\r\n");
-                writeBulkString(out, info.toString());
-            }
-            default -> {
-                throw new IllegalArgumentException("Invalid command");
-            }
+        StringBuilder info = new StringBuilder();
+        if (Main.masterHostAndPort != null) {
+            info.append("role:slave\r\n");
+        } else {
+            info.append("role:master\r\n");
         }
+
+        info.append("master_replid:"+ Main.masterReplId +"\r\n");
+        info.append("master_repl_offset:" + Main.masterReplOffset + "\r\n");
+
+        writeBulkString(out, info.toString());
     }
 
     private static void executeKeys(Command command, DataOutputStream out) {
@@ -109,7 +113,6 @@ public class CommandExecutor {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
     }
 
     private static void executeConfig(Command command, DataOutputStream out) {
@@ -134,7 +137,6 @@ public class CommandExecutor {
         } else {
             throw new IllegalArgumentException("Invalid command");
         }
-
     }
 
     public static void writeArray(DataOutputStream out, String[] returnArray) {
@@ -150,6 +152,7 @@ public class CommandExecutor {
     }
 
     private static void executeGet(Command command, DataOutputStream out) {
+        System.out.println("received GET command");
         KeyValueStore keyValueStore = KeyValueStore.getInstance();
         String value = (String) keyValueStore.get(command.getArgs()[0]);
         if (value == null && Main.rdbFilePath != null) {
@@ -177,7 +180,8 @@ public class CommandExecutor {
         }
     }
 
-    private static void executeSet(Command command, DataOutputStream out) {
+    private static void executeSet(Command command, DataOutputStream out, boolean silent) {
+        System.out.println("received SET command");
         KeyValueStore keyValueStore = KeyValueStore.getInstance();
         // check if the command provides an expiry time. If it does, the command will be of the form:
         // SET key value px milliseconds
@@ -187,12 +191,15 @@ public class CommandExecutor {
         } else {
             keyValueStore.put(command.getArgs()[0], command.getArgs()[1]);
         }
-        try {
-            out.writeBytes("+OK\r\n");
-            out.flush();
-        } catch (IOException e) {
-            System.out.println("Failed to write to client " + e.getMessage());
+        if (!silent) {
+            try {
+                out.writeBytes("+OK\r\n");
+                out.flush();
+            } catch (IOException e) {
+                System.out.println("Failed to write to client " + e.getMessage());
+            }
         }
+        System.out.println("SET command executed successfully");
     }
 
     private static void executeEcho(Command command, DataOutputStream out) {
@@ -225,6 +232,14 @@ public class CommandExecutor {
         try {
             out.writeBytes("+PONG\r\n");
             out.flush();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void writeRdbFile(byte[] rdbFileData, String rdbFilePath) {
+        try (FileOutputStream fos = new FileOutputStream(rdbFilePath)) {
+            fos.write(rdbFileData);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
