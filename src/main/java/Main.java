@@ -20,6 +20,7 @@ public class Main {
     public static int masterReplOffset;
     public static List<DataOutputStream> replicaOutputs;
     public static DataInputStream masterInputStream;
+    public static DataOutputStream masterOutputStream;
 
     public static void main(String[] args){
           setup(args);
@@ -49,7 +50,8 @@ public class Main {
             try {
                 Command command = CommandParser.parse(masterInputStream);
                 System.out.println("Received command from master: " + command.getCommand());
-                CommandExecutor.execute(command, null, true); // Process silently for replicas
+                System.out.println("master ouput stream is null? " + (masterOutputStream == null));
+                CommandExecutor.execute(command, masterOutputStream);
             } catch (Exception e) {
                 System.out.println("Failed to read from master: " + e.getMessage());
                 break;
@@ -118,6 +120,7 @@ public class Main {
             }
 
             masterInputStream = in;
+            masterOutputStream = out;
 
             System.out.println("Handshake with master successful");
 

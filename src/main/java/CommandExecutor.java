@@ -52,18 +52,20 @@ public class CommandExecutor {
     }
 
     private static void propagateToReplicas(Command command) {
-        for (DataOutputStream replicaOut : Main.replicaOutputs) {
-            // print out the host and port of the replica
-            System.out.println("Propagating to replica: " + replicaOut);
-            replicaThreadPool.execute(() -> {
-                try {
-                    String[] commandStrings = command.toArray();
-                    System.out.println("Propagating command to replica: " + commandStrings);
-                    writeArray(replicaOut, commandStrings);
-                } catch (Exception e) {
-                    System.out.println("Failed to propagate command to replica: " + e.getMessage());
-                }
-            });
+        if (Main.replicaOutputs != null) {
+            for (DataOutputStream replicaOut : Main.replicaOutputs) {
+                // print out the host and port of the replica
+                System.out.println("Propagating to replica: " + replicaOut);
+                replicaThreadPool.execute(() -> {
+                    try {
+                        String[] commandStrings = command.toArray();
+                        System.out.println("Propagating command to replica: " + commandStrings);
+                        writeArray(replicaOut, commandStrings);
+                    } catch (Exception e) {
+                        System.out.println("Failed to propagate command to replica: " + e.getMessage());
+                    }
+                });
+            }
         }
     }
 
@@ -81,6 +83,7 @@ public class CommandExecutor {
     }
 
     private static void executeReplConf(Command command, DataOutputStream out) {
+        System.out.println("received REPLCONF command");
         if (command.getArgs()[0].equalsIgnoreCase("getack")) {
             writeArray(out, new String[]{"REPLCONF", "ACK", "0"});
         } else {
