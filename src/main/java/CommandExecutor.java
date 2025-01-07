@@ -40,7 +40,7 @@ public class CommandExecutor {
                 executeInfo(command, out);
             }
             case REPLCONF -> {
-                executeReplConfOk(command, out);
+                executeReplConf(command, out);
             }
             case PSYNC -> {
                 executePsync(command, out);
@@ -77,6 +77,14 @@ public class CommandExecutor {
             out.flush();
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static void executeReplConf(Command command, DataOutputStream out) {
+        if (command.getArgs()[0].equalsIgnoreCase("getack")) {
+            writeArray(out, new String[]{"REPLCONF", "ACK", "0"});
+        } else {
+            executeReplConfOk(command, out);
         }
     }
 
