@@ -16,34 +16,34 @@ public class CommandExecutor {
         }
     }
 
-    public static void execute(Command command, DataOutputStream out, boolean silent) {
+    public static void execute(Command command, DataOutputStream out, boolean isSilent) {
         switch (command.getCommand()) {
             case PING -> {
-                executePing(command, out);
+                executePing(command, out, isSilent);
             }
             case ECHO -> {
-                executeEcho(command, out);
+                executeEcho(command, out, isSilent);
             }
             case SET -> {
-                executeSet(command, out, silent);
+                executeSet(command, out, isSilent);
             }
             case GET -> {
-                executeGet(command, out);
+                executeGet(command, out, isSilent);
             }
             case KEYS -> {
-                executeKeys(command, out);
+                executeKeys(command, out, isSilent);
             }
             case CONFIG -> {
-                executeConfig(command, out);
+                executeConfig(command, out, isSilent);
             }
             case INFO -> {
-                executeInfo(command, out);
+                executeInfo(command, out, isSilent);
             }
             case REPLCONF -> {
-                executeReplConf(command, out);
+                executeReplConf(command, out, isSilent);
             }
             case PSYNC -> {
-                executePsync(command, out);
+                executePsync(command, out, isSilent);
             }
             default -> {
                 throw new IllegalArgumentException("Invalid command");
@@ -69,7 +69,8 @@ public class CommandExecutor {
         }
     }
 
-    private static void executePsync(Command command, DataOutputStream out) {
+    private static void executePsync(Command command, DataOutputStream out, boolean isSilent) {
+        if (isSilent) return;
         writeSimpleString(out, "FULLRESYNC " + Main.masterReplId + " " + Main.masterReplOffset);
         String emptyFileContents = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
         byte[] bytes = Base64.getDecoder().decode(emptyFileContents);
@@ -79,19 +80,21 @@ public class CommandExecutor {
             out.flush();
         } catch (IOException e) {
             throw new RuntimeException(e);
-        }
+        }   
     }
 
-    private static void executeReplConf(Command command, DataOutputStream out) {
+    private static void executeReplConf(Command command, DataOutputStream out, boolean isSilent) {
         System.out.println("received REPLCONF command");
         if (command.getArgs()[0].equalsIgnoreCase("getack")) {
-            writeArray(out, new String[]{"REPLCONF", "ACK", "0"});
+            // todo: implement this without hardcoding the values
+            writeArray(out, new String[]{"REPLCONF", "ACK", String.valueOf(CommandParser.totalCommandBytesProcessed - 37)});
         } else {
-            executeReplConfOk(command, out);
+            executeReplConfOk(command, out, isSilent);
         }
     }
 
-    private static void executeReplConfOk(Command command, DataOutputStream out) {
+    private static void executeReplConfOk(Command command, DataOutputStream out, boolean isSilent) {
+        if (isSilent) return;
         writeSimpleString(out, "OK");
         try {
             out.flush();
@@ -100,7 +103,7 @@ public class CommandExecutor {
         }
     }
 
-    private static void executeInfo(Command command, DataOutputStream out) {
+    private static void executeInfo(Command command, DataOutputStream out, boolean isSilent) {
         StringBuilder info = new StringBuilder();
         if (Main.masterHostAndPort != null) {
             info.append("role:slave\r\n");
@@ -111,22 +114,27 @@ public class CommandExecutor {
         info.append("master_replid:"+ Main.masterReplId +"\r\n");
         info.append("master_repl_offset:" + Main.masterReplOffset + "\r\n");
 
-        writeBulkString(out, info.toString());
+        if (!isSilent) {
+            writeBulkString(out, info.toString());
+        }
     }
 
-    private static void executeKeys(Command command, DataOutputStream out) {
+    private static void executeKeys(Command command, DataOutputStream out, boolean isSilent) {
         String rdbFilePath = Main.rdbFilePath;
         RdbFileReader rdbFileReader = new RdbFileReader();
         try {
             List<String> keys = rdbFileReader.getKeys(rdbFilePath);
             // write the list of keys as a bulk string array
-            writeArray(out, keys.toArray(new String[keys.size()]));
+            if (!isSilent) {
+                writeArray(out, keys.toArray(new String[keys.size()]));
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static void executeConfig(Command command, DataOutputStream out) {
+    private static void executeConfig(Command command, DataOutputStream out, boolean isSilent) {
+        if (isSilent) return;
         // if the first argument is "GET", then the command is of the form:
         // CONFIG GET key
         if (command.getArgs()[0].equalsIgnoreCase("GET")) {
@@ -162,7 +170,8 @@ public class CommandExecutor {
         }
     }
 
-    private static void executeGet(Command command, DataOutputStream out) {
+    private static void executeGet(Command command, DataOutputStream out, boolean isSilent) {
+        if (isSilent) return;
         System.out.println("received GET command");
         KeyValueStore keyValueStore = KeyValueStore.getInstance();
         String value = (String) keyValueStore.get(command.getArgs()[0]);
@@ -191,7 +200,7 @@ public class CommandExecutor {
         }
     }
 
-    private static void executeSet(Command command, DataOutputStream out, boolean silent) {
+    private static void executeSet(Command command, DataOutputStream out, boolean isSilent) {
         System.out.println("received SET command");
         KeyValueStore keyValueStore = KeyValueStore.getInstance();
         // check if the command provides an expiry time. If it does, the command will be of the form:
@@ -202,7 +211,7 @@ public class CommandExecutor {
         } else {
             keyValueStore.put(command.getArgs()[0], command.getArgs()[1]);
         }
-        if (!silent) {
+        if (!isSilent) {
             try {
                 out.writeBytes("+OK\r\n");
                 out.flush();
@@ -213,7 +222,8 @@ public class CommandExecutor {
         System.out.println("SET command executed successfully");
     }
 
-    private static void executeEcho(Command command, DataOutputStream out) {
+    private static void executeEcho(Command command, DataOutputStream out, boolean isSilent) {
+        if (isSilent) return;
         writeBulkString(out, command.getArgs()[0]);
         try {
             out.flush();
@@ -239,7 +249,8 @@ public class CommandExecutor {
         }
     }
 
-    private static void executePing(Command command, DataOutputStream out) {
+    private static void executePing(Command command, DataOutputStream out, boolean isSilent) {
+        if (isSilent) return;
         try {
             out.writeBytes("+PONG\r\n");
             out.flush();

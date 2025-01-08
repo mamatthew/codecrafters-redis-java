@@ -13,14 +13,18 @@ public class CommandParser {
     public static final byte CARRIAGE_RETURN_BYTE = '\r';
     public static final byte LINE_FEED_BYTE = '\n';
 
+    public static int totalCommandBytesProcessed = 0;
+
     public static Command parse(DataInputStream in) throws Exception {
-        return new Command(process(in, new ArrayList<>()));
+        List<String> args = process(in, new ArrayList<>());
+        return new Command(args);
     }
 
     static List<String> process(DataInputStream in, List<String> args) throws Exception {
         byte b;
         try {
             b = in.readByte();
+            totalCommandBytesProcessed += 1; // Add 1 byte for the command type byte
             switch(b) {
                 case ASTERISK_BYTE -> {
                     return processBulkStringArray(in, args);
@@ -40,14 +44,16 @@ public class CommandParser {
         }
     }
 
-    public static List<String> processSimpleString(DataInputStream in, List<String> args) {
+    private static List<String> processSimpleString(DataInputStream in, List<String> args) {
         StringBuilder sb = new StringBuilder();
         try {
             byte b;
             while ((b = in.readByte()) != CARRIAGE_RETURN_BYTE) {
                 sb.append((char) b);
+                totalCommandBytesProcessed += 1; // Add 1 byte for each character
             }
             in.readByte(); // consume the LINE_FEED_BYTE
+            totalCommandBytesProcessed += 2; // Add 2 bytes for CRLF
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -68,6 +74,7 @@ public class CommandParser {
             in.readFully(buf);
             in.readByte(); // consume the CARRIAGE_RETURN_BYTE
             in.readByte(); // consume the LINE_FEED_BYTE
+            totalCommandBytesProcessed += len + 2; // Add length of bulk string and CRLF
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -95,10 +102,12 @@ public class CommandParser {
         boolean isNegative = false;
         while (true) {
             byte b = in.readByte();
+            totalCommandBytesProcessed += 1; // Add 1 byte for each character
             if (b == MINUS_BYTE) {
                 isNegative = true;
             } else if (b == CARRIAGE_RETURN_BYTE) {
                 in.readByte(); // consume the line feed
+                totalCommandBytesProcessed += 1; // Add 1 byte for LF
                 break;
             } else {
                 result = result * 10 + (b - '0');

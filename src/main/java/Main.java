@@ -48,10 +48,12 @@ public class Main {
         System.out.println("Listening to master");
         while (true) {
             try {
+                System.out.println("total command bytes processed: " + CommandParser.totalCommandBytesProcessed);
                 Command command = CommandParser.parse(masterInputStream);
+                System.out.println("total command bytes processed: " + CommandParser.totalCommandBytesProcessed);
                 System.out.println("Received command from master: " + command.getCommand());
                 System.out.println("master ouput stream is null? " + (masterOutputStream == null));
-                CommandExecutor.execute(command, masterOutputStream);
+                CommandExecutor.execute(command, masterOutputStream, true);
             } catch (Exception e) {
                 System.out.println("Failed to read from master: " + e.getMessage());
                 break;
@@ -115,6 +117,8 @@ public class Main {
                 CommandExecutor.writeRdbFile(rdbFileData, "dump.rdb");
                 
                 System.out.println("RDB file loaded successfully");
+
+                CommandParser.totalCommandBytesProcessed = 0;
             } else {
                 throw new RuntimeException("Unexpected response from master: " + response.get(0));
             }
