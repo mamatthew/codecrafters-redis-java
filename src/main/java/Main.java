@@ -34,6 +34,7 @@ public class Main {
               while (true) {
                   // Wait for connection from client.
                   Socket clientSocket = serverSocket.accept();
+                  System.out.println("Accepted connection from client");
                   threadPool.execute(new ClientHandler(clientSocket));
               }
 

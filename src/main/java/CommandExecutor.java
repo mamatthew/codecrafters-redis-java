@@ -45,6 +45,9 @@ public class CommandExecutor {
             case PSYNC -> {
                 executePsync(command, out, isSilent);
             }
+            case WAIT -> {
+                executeWait(command, out, isSilent);
+            }
             default -> {
                 throw new IllegalArgumentException("Invalid command");
             }
@@ -253,6 +256,16 @@ public class CommandExecutor {
         if (isSilent) return;
         try {
             out.writeBytes("+PONG\r\n");
+            out.flush();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void executeWait(Command command, DataOutputStream out, boolean isSilent) {
+        if (isSilent) return;
+        try {
+            out.writeBytes(":0\r\n");
             out.flush();
         } catch (IOException e) {
             throw new RuntimeException(e);
