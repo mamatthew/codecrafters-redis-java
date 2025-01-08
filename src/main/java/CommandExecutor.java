@@ -265,7 +265,8 @@ public class CommandExecutor {
     private static void executeWait(Command command, DataOutputStream out, boolean isSilent) {
         if (isSilent) return;
         try {
-            out.writeBytes(":0\r\n");
+            int numreplicas = Main.replicaOutputs.size();
+            out.writeBytes(":" + numreplicas + "\r\n");
             out.flush();
         } catch (IOException e) {
             throw new RuntimeException(e);

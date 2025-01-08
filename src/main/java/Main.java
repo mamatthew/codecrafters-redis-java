@@ -49,11 +49,8 @@ public class Main {
         System.out.println("Listening to master");
         while (true) {
             try {
-                System.out.println("total command bytes processed: " + CommandParser.totalCommandBytesProcessed);
                 Command command = CommandParser.parse(masterInputStream);
-                System.out.println("total command bytes processed: " + CommandParser.totalCommandBytesProcessed);
                 System.out.println("Received command from master: " + command.getCommand());
-                System.out.println("master ouput stream is null? " + (masterOutputStream == null));
                 CommandExecutor.execute(command, masterOutputStream, true);
             } catch (Exception e) {
                 System.out.println("Failed to read from master: " + e.getMessage());
@@ -77,7 +74,6 @@ public class Main {
         if (masterHostAndPort != null) {
             String host = masterHostAndPort.split(" ")[0];
             int port = Integer.parseInt(masterHostAndPort.split(" ")[1]);
-            System.out.println("Connecting to master at " + host + ":" + port);
             sendHandshakeToMaster(host, port);
         } else {
             replicaOutputs = new CopyOnWriteArrayList<>();
