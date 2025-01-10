@@ -24,19 +24,24 @@ public class CommandParser {
         byte b;
         try {
             b = in.readByte();
+            // print out the current thread name
+            System.out.println(Thread.currentThread().getName() + " Processing byte: " + (char) b);
             totalCommandBytesProcessed += 1; // Add 1 byte for the command type byte
             switch(b) {
                 case ASTERISK_BYTE -> {
+                    System.out.println(Thread.currentThread().getName() + " processing bulk string array");
                     return processBulkStringArray(in, args);
                 }
                 case DOLLAR_BYTE -> {
+                    System.out.println(Thread.currentThread().getName() + " processing bulk string");
                     return processBulkString(in, args);
                 }
                 case PLUS_BYTE -> {
+                    System.out.println(Thread.currentThread().getName() + " processing simple string");
                     return processSimpleString(in, args);
                 }
                 default -> {
-                    throw new IllegalArgumentException("Invalid command");
+                    throw new IllegalArgumentException("Invalid command: " + (char) b);
                 }
             }
         } catch (IOException e) {
@@ -65,6 +70,7 @@ public class CommandParser {
         int len;
         try {
             len = readIntCRLF(in);
+            System.out.println(Thread.currentThread().getName() + " Processing bulk string of length: " + len);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -87,6 +93,7 @@ public class CommandParser {
         int len;
         try {
             len = readIntCRLF(in);
+            System.out.println(Thread.currentThread().getName() + " Processing bulk string array of length: " + len);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -3,16 +3,20 @@ import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class CommandExecutor {
     private static final ExecutorService replicaThreadPool = Executors.newCachedThreadPool();
-
+    public static CountDownLatch latch;
     public static void execute(Command command, DataOutputStream out) {
         boolean isWriteCommand = command.getCommand() == CommandName.SET;
         execute(command, out, false);
         if (isWriteCommand) {
             System.out.println("received write command. Propagating to replicas");
             propagateToReplicas(command);
+            // incremeent the master replication offset by the number of bytes in the command
+            Main.masterReplOffset += command.getLengthInBytes();
         }
     }
 
@@ -55,8 +59,8 @@ public class CommandExecutor {
     }
 
     private static void propagateToReplicas(Command command) {
-        if (Main.replicaOutputs != null) {
-            for (DataOutputStream replicaOut : Main.replicaOutputs) {
+        if (Main.replicaMap != null) {
+            for (DataOutputStream replicaOut : Main.replicaMap.keySet()) {
                 // print out the host and port of the replica
                 System.out.println("Propagating to replica: " + replicaOut);
                 replicaThreadPool.execute(() -> {
@@ -65,7 +69,7 @@ public class CommandExecutor {
                         System.out.println("Propagating command to replica: " + commandStrings);
                         writeArray(replicaOut, commandStrings);
                     } catch (Exception e) {
-                        System.out.println("Failed to propagate command to replica: " + e.getMessage());
+                        System.out.println(Thread.currentThread().getName() + " Failed to propagate command to replica: " + e.getMessage());
                     }
                 });
             }
@@ -89,7 +93,6 @@ public class CommandExecutor {
     private static void executeReplConf(Command command, DataOutputStream out, boolean isSilent) {
         System.out.println("received REPLCONF command");
         if (command.getArgs()[0].equalsIgnoreCase("getack")) {
-            // todo: implement this without hardcoding the values
             writeArray(out, new String[]{"REPLCONF", "ACK", String.valueOf(CommandParser.totalCommandBytesProcessed - 37)});
         } else {
             executeReplConfOk(command, out, isSilent);
@@ -264,12 +267,43 @@ public class CommandExecutor {
 
     private static void executeWait(Command command, DataOutputStream out, boolean isSilent) {
         if (isSilent) return;
+        int numReplicas = Integer.parseInt(command.getArgs()[0]);
+        int timeout = Integer.parseInt(command.getArgs()[1]);
+
+        // Check if there are pending write operations
+        if (Main.masterReplOffset == 0) {
+            // No pending write operations, return the number of connected replicas
+            try {
+                out.writeBytes(":" + Main.replicaMap.size() + "\r\n");
+                out.flush();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return;
+        }
+
+        latch = new CountDownLatch(numReplicas);
+        System.out.println("Current thread executing WAIT: " + Thread.currentThread().getName());
+        for (DataOutputStream replicaOut : Main.replicaMap.keySet()) {
+            new Thread(() -> {
+                try {
+                    CommandExecutor.writeArray(replicaOut, new String[]{"REPLCONF", "GETACK", "*"});
+                } catch (Exception e) {
+                    System.out.println("Failed to send REPLCONF GETACK to replica: " + e.getMessage());
+                }
+            }).start();
+        }
+
         try {
-            int numreplicas = Main.replicaOutputs.size();
-            out.writeBytes(":" + numreplicas + "\r\n");
+            boolean completed = latch.await(timeout, TimeUnit.MILLISECONDS);
+            System.out.println("countdown completed? " + completed);
+            out.writeBytes(":" + (completed ? numReplicas : numReplicas - latch.getCount()) + "\r\n");
             out.flush();
-        } catch (IOException e) {
+        } catch (InterruptedException | IOException e) {
             throw new RuntimeException(e);
+        } finally {
+            // Reset masterReplOffset after processing the WAIT command
+            Main.masterReplOffset = 0;
         }
     }
 

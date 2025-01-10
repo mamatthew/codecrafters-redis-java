@@ -7,9 +7,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Main {
     private static final int THREAD_POOL_SIZE = 10;
@@ -18,9 +18,9 @@ public class Main {
     static String masterHostAndPort;
     public static String masterReplId;
     public static int masterReplOffset;
-    public static List<DataOutputStream> replicaOutputs;
     public static DataInputStream masterInputStream;
     public static DataOutputStream masterOutputStream;
+    public static ConcurrentHashMap<DataOutputStream, DataInputStream> replicaMap = new ConcurrentHashMap<>();
 
     public static void main(String[] args){
           setup(args);
@@ -76,7 +76,7 @@ public class Main {
             int port = Integer.parseInt(masterHostAndPort.split(" ")[1]);
             sendHandshakeToMaster(host, port);
         } else {
-            replicaOutputs = new CopyOnWriteArrayList<>();
+            replicaMap = new ConcurrentHashMap<>();
             masterReplId = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
             masterReplOffset = 0;
         }
