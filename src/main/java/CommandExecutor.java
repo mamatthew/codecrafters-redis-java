@@ -52,6 +52,9 @@ public class CommandExecutor {
             case WAIT -> {
                 executeWait(command, out, isSilent);
             }
+            case TYPE -> {
+                executeType(command, out, isSilent);
+            }
             default -> {
                 throw new IllegalArgumentException("Invalid command");
             }
@@ -262,6 +265,18 @@ public class CommandExecutor {
             out.flush();
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static void executeType(Command command, DataOutputStream out, boolean isSilent) {
+        if (isSilent) return;
+        KeyValueStore keyValueStore = KeyValueStore.getInstance();
+        String key = command.getArgs()[0];
+        Object value = keyValueStore.get(key);
+        if (value != null) {
+             writeSimpleString(out, "string");
+        } else {
+            writeSimpleString(out, "none");
         }
     }
 

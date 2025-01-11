@@ -8,7 +8,8 @@ public enum CommandName {
     INFO("INFO"),
     REPLCONF("REPLCONF"),
     PSYNC("PSYNC"),
-    WAIT("WAIT");
+    WAIT("WAIT"),
+    TYPE("TYPE");
 
     private String name;
 
