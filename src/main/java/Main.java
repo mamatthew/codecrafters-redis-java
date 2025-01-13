@@ -10,6 +10,9 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Base64;
+import java.io.FileOutputStream;
+import java.io.File;
 
 public class Main {
     private static final int THREAD_POOL_SIZE = 10;
@@ -68,6 +71,9 @@ public class Main {
 
         if (commandLineArgs.dir != null && commandLineArgs.dbfilename != null) {
             rdbFilePath = commandLineArgs.dir + "/" + commandLineArgs.dbfilename;
+        } else {
+            rdbFilePath = "persistence/dump.rdb";
+            createDefaultRdbFile(rdbFilePath);
         }
         port = commandLineArgs.port;
         masterHostAndPort = commandLineArgs.replicaof;
@@ -79,6 +85,39 @@ public class Main {
             replicaMap = new ConcurrentHashMap<>();
             masterReplId = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
             masterReplOffset = 0;
+        }
+
+        loadRdbFileIntoKeyValueStore(rdbFilePath);
+    }
+
+    private static void createDefaultRdbFile(String rdbFilePath) {
+        String base64Content = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
+        byte[] decodedBytes = Base64.getDecoder().decode(base64Content);
+        File rdbFile = new File(rdbFilePath);
+        rdbFile.getParentFile().mkdirs(); // Ensure the directory exists
+        try (FileOutputStream fos = new FileOutputStream(rdbFile)) {
+            fos.write(decodedBytes);
+            System.out.println("Default RDB file created at " + rdbFilePath);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create default RDB file: " + e.getMessage(), e);
+        }
+    }
+
+    private static void loadRdbFileIntoKeyValueStore(String rdbFilePath) {
+        KeyValueStore keyValueStore = KeyValueStore.getInstance();
+        RdbFileReader rdbFileReader = new RdbFileReader();
+        try {
+            List<RdbEntry> entries = rdbFileReader.getEntries(rdbFilePath);
+            for (RdbEntry entry : entries) {
+                if (entry.getExpiryTime() > 0) {
+                    keyValueStore.put(entry.getKey(), entry.getValue(), entry.getExpiryTime() - System.currentTimeMillis());
+                } else {
+                    keyValueStore.put(entry.getKey(), entry.getValue());
+                }
+            }
+            System.out.println("RDB file loaded into KeyValueStore");
+        } catch (IOException e) {
+            System.out.println("Failed to load RDB file into KeyValueStore: " + e.getMessage());
         }
     }
 

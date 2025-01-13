@@ -11,19 +11,15 @@ public class RdbFileReader {
     private static final byte[] HEADER_MAGIC = "REDIS".getBytes();
     private static final byte[] HEADER_VERSION = "0011".getBytes();
 
-    public List<String> getKeys(String filePath) throws IOException {
-        List<String> keys = new ArrayList<>();
-        try (PushbackInputStream in = new PushbackInputStream(new DataInputStream(new FileInputStream(filePath))) ) {
+    public List<RdbEntry> getEntries(String filePath) throws IOException {
+        List<RdbEntry> entries = new ArrayList<>();
+        try (PushbackInputStream in = new PushbackInputStream(new DataInputStream(new FileInputStream(filePath)))) {
             parseHeader(in);
-            System.out.println("Header parsed");
             parseMetadata(in);
-            System.out.println("Metadata parsed");
-            parseDatabase(in, keys);
-            System.out.println("Database parsed");
+            parseDatabase(in, entries);
             parseEndOfFile(in);
-            System.out.println("End of file parsed");
         }
-        return keys;
+        return entries;
     }
 
     public String readValueFromKey(String filePath, String key) throws IOException {
@@ -60,7 +56,7 @@ public class RdbFileReader {
                     byte type = (byte) in.read();
                     boolean isExpired = false;
                     if (type == (byte) 0xFC || type == (byte) 0xFD) {
-                        isExpired = parseExpire(in, type);
+                        isExpired = parseExpire(in, type) < System.currentTimeMillis();
                         type = (byte) in.read();
                     }
                     String currentKey = parseString(in);
@@ -93,11 +89,12 @@ public class RdbFileReader {
     private void parseMetadata(PushbackInputStream in) throws IOException {
         while (true) {
             byte marker = (byte) in.read();
-            if (marker == (byte) 0xFE) {
+            if (marker == (byte) 0xFE || marker == (byte) 0xFF) {
                 in.unread(marker);
                 break;
             }
             if (marker != (byte) 0xFA) {
+                System.out.println("Invalid RDB file: unexpected metadata marker: " + marker);
                 throw new IOException("Invalid RDB file: unexpected metadata marker");
             }
             String name = parseString(in); // metadata name
@@ -107,7 +104,7 @@ public class RdbFileReader {
         }
     }
 
-    private void parseDatabase(PushbackInputStream in, List<String> keys) throws IOException {
+    private void parseDatabase(PushbackInputStream in, List<RdbEntry> entries) throws IOException {
         while (true) {
             byte marker = (byte) in.read();
             if (marker == (byte) 0xFF) {
@@ -129,10 +126,14 @@ public class RdbFileReader {
                 // parse hash table
                 for (int i = 0; i < size; i++) {
                     byte type = (byte) in.read();
+                    long expiryTime = 0;
                     if (type == (byte) 0xFC || type == (byte) 0xFD) {
-                        parseExpire(in, type);
+                        expiryTime = parseExpire(in, type);
+                        type = (byte) in.read();
                     }
-                    parseKeyValue(in, keys, type);
+                    String key = parseString(in);
+                    String value = parseValue(in, type);
+                    entries.add(new RdbEntry(key, value, expiryTime));
                 }
             } catch (IOException e) {
                 throw new RuntimeException("Invalid RDB file: failed to parse hash table size", e);
@@ -159,17 +160,15 @@ public class RdbFileReader {
 
     }
 
-    private boolean parseExpire(PushbackInputStream in, byte type) throws IOException {
+    private long parseExpire(PushbackInputStream in, byte type) throws IOException {
         if (type == (byte) 0xFC) {
             byte[] expireTimestamp = new byte[8];
             in.read(expireTimestamp, 0, 8); // expire timestamp in milliseconds
-            long expiryTime = ByteBuffer.wrap(expireTimestamp).order(ByteOrder.LITTLE_ENDIAN).getLong();
-            return expiryTime < System.currentTimeMillis();
+            return ByteBuffer.wrap(expireTimestamp).order(ByteOrder.LITTLE_ENDIAN).getLong();
         } else {
             byte[] expireTimestamp = new byte[4];
             in.read(expireTimestamp, 0, 4); // expire timestamp in seconds
-            long expiryTime = ByteBuffer.wrap(expireTimestamp).order(ByteOrder.LITTLE_ENDIAN).getInt();
-            return expiryTime < System.currentTimeMillis() / 1000;
+            return ByteBuffer.wrap(expireTimestamp).order(ByteOrder.LITTLE_ENDIAN).getInt() * 1000L;
         }
     }
 
@@ -282,5 +281,30 @@ public class RdbFileReader {
             throw new RuntimeException("Failed to parse size: " + e.getMessage());
         }
 
+    }
+}
+
+// RdbEntry class to hold key, value, and expiry time
+class RdbEntry {
+    private final String key;
+    private final String value;
+    private final long expiryTime;
+
+    public RdbEntry(String key, String value, long expiryTime) {
+        this.key = key;
+        this.value = value;
+        this.expiryTime = expiryTime;
+    }
+
+    public String getKey() {
+        return key;
+    }
+
+    public String getValue() {
+        return value;
+    }
+
+    public long getExpiryTime() {
+        return expiryTime;
     }
 }

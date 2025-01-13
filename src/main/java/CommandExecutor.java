@@ -132,10 +132,10 @@ public class CommandExecutor {
         String rdbFilePath = Main.rdbFilePath;
         RdbFileReader rdbFileReader = new RdbFileReader();
         try {
-            List<String> keys = rdbFileReader.getKeys(rdbFilePath);
+            List<RdbEntry> keys = rdbFileReader.getEntries(rdbFilePath);
             // write the list of keys as a bulk string array
             if (!isSilent) {
-                writeArray(out, keys.toArray(new String[keys.size()]));
+                writeArray(out, keys.stream().map(RdbEntry::getKey).toArray(String[]::new));
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -184,14 +184,6 @@ public class CommandExecutor {
         System.out.println("received GET command");
         KeyValueStore keyValueStore = KeyValueStore.getInstance();
         String value = (String) keyValueStore.get(command.getArgs()[0]);
-        if (value == null && Main.rdbFilePath != null) {
-            try {
-                RdbFileReader rdbFileReader = new RdbFileReader();
-                value = rdbFileReader.readValueFromKey(Main.rdbFilePath, command.getArgs()[0]);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
         if (value == null) {
             try {
                 out.writeBytes("$-1\r\n");
